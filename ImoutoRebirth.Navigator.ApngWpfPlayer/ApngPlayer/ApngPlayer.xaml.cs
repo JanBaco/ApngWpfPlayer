@@ -21,6 +21,8 @@ namespace ImoutoRebirth.Navigator.ApngWpfPlayer.ApngPlayer
         private readonly SemaphoreSlim _loadLocker = new(1);
         private ApngImage? _apngSource;
         private CancellationTokenSource? _playingToken;
+        private bool _isReverseAtEnd = false;
+        private bool IsReversibleActive = false;
 
         public ApngPlayer()
         {
@@ -33,6 +35,12 @@ namespace ImoutoRebirth.Navigator.ApngWpfPlayer.ApngPlayer
                 typeof (string), 
                 typeof (ApngPlayer), 
                 new UIPropertyMetadata(null, OnSourceChanged));
+
+        public bool IsReverseAtEnd
+        {
+            get { return _isReverseAtEnd; }
+            set { _isReverseAtEnd = value; }
+        }
 
         public string Source
         {
@@ -108,14 +116,35 @@ namespace ImoutoRebirth.Navigator.ApngWpfPlayer.ApngPlayer
 
             while (!ct.IsCancellationRequested)
             {
-                currentFrame++;
+                if (!IsReverseAtEnd)
+                {
+                    currentFrame++;
 
-                if (currentFrame >= _apngSource.Frames.Length)
-                    currentFrame = 0;
+                    if (currentFrame >= _apngSource.Frames.Length)
+                        currentFrame = 0;
 
-                if (_apngSource.Frames.Length == 0)
-                    return;
-                
+                    if (_apngSource.Frames.Length == 0)
+                        return;
+                }
+                else
+                {
+                    if (IsReversibleActive)
+                        currentFrame--;
+                    else
+                        currentFrame++;
+
+                    if (!IsReversibleActive && currentFrame >= _apngSource.Frames.Length)
+                    {
+                        currentFrame -= 2;
+                        IsReversibleActive = true;
+                    }
+                    if (IsReversibleActive && currentFrame<0)
+                    {
+                        currentFrame = 0;
+                        IsReversibleActive = false;
+                    }
+                }
+
                 var frame = _apngSource.Frames[currentFrame];
                 if (readyFrames.Count <= currentFrame)
                 {
